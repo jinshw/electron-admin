@@ -1,0 +1,167 @@
+import Vue from 'vue'
+import Router from 'vue-router'
+import { setLocalStorage, getLocalStorage } from '@/utils/auth'
+
+// 解决Vue-Router升级导致的Uncaught(in promise) navigation guard问题
+// const originalPush = Router.prototype.push
+// Router.prototype.push = function push (location, onResolve, onReject) {
+//   if (onResolve || onReject) return originalPush.call(this, location, onResolve, onReject)
+//   return originalPush.call(this, location).catch(err => err)
+// }
+
+
+Vue.use(Router)
+
+/* Layout */
+import Layout from '@/layout'
+const _import = require('./_import_' + process.env.NODE_ENV)
+
+/**
+ * Note: sub-menu only appear when route children.length >= 1
+ * Detail see: https://panjiachen.github.io/vue-element-admin-site/guide/essentials/router-and-nav.html
+ *
+ * hidden: true                   if set true, item will not show in the sidebar(default is false)
+ * alwaysShow: true               if set true, will always show the root menu
+ *                                if not set alwaysShow, when item has more than one children route,
+ *                                it will becomes nested mode, otherwise not show the root menu
+ * redirect: noRedirect           if set noRedirect will no redirect in the breadcrumb
+ * name:'router-name'             the name is used by <keep-alive> (must set!!!)
+ * meta : {
+    roles: ['admin','editor']    control the page roles (you can set multiple roles)
+    title: 'title'               the name show in sidebar and breadcrumb (recommend set)
+    icon: 'svg-name'             the icon show in the sidebar
+    breadcrumb: false            if set false, the item will hidden in breadcrumb(default is true)
+    activeMenu: '/example/list'  if set path, the sidebar will highlight the path you set
+  }
+ */
+
+/**
+ * constantRoutes
+ * a base page that does not have permission requirements
+ * all roles can be accessed
+ */
+export const constantRoutes = [
+  {
+    path: '/redirect',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '/redirect/:path*',
+        component: () => import('@/views/redirect/index')
+      }
+    ]
+  },
+  {
+    path: '/login',
+    component: () => import('@/views/login/index'),
+    hidden: true
+  },
+
+  {
+    path: '/404',
+    component: () => import('@/views/404'),
+    hidden: true
+  },
+
+  {
+    path: '/',
+    component: Layout,
+    redirect: '/dashboard',
+    children: [{
+      path: 'dashboard',
+      name: 'Dashboard',
+      component: () => import('@/views/dashboard/index'),
+      meta: { title: '地图展示', icon: 'dashboard' }
+    }]
+  }
+
+]
+
+function saveInitRouter() {
+  setLocalStorage('initRouter', constantRoutes)
+}
+saveInitRouter()
+
+const createRouter = () => new Router({
+  // mode: 'history', // require service support
+  scrollBehavior: () => ({ y: 0 }),
+  routes: constantRoutes
+})
+
+const router = createRouter()
+
+// Detail see: https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465
+export function resetRouter() {
+  const newRouter = createRouter()
+  // setRouter()
+  router.matcher = newRouter.matcher // reset router
+}
+
+export function remoteRouter(menuList) {
+  const initRouter = getLocalStorage('initRouter')
+  router.options.routes = initRouter
+  router.addRoutes(router.options.routes)
+  const list = getMenuTree(menuList.children)
+  // 动态添加路由
+  for (let i = 0; i < list.length; i++) {
+    var isFlag = router.options.routes.some(function(obj) {
+      if (obj.path === list[i].path) {
+        return true
+      }
+    })
+    if (!isFlag) {
+      router.options.routes.push(list[i])
+    }
+  }
+  console.log('.....mmm..........')
+  console.log(router.options.routes)
+  router.addRoutes(router.options.routes)
+}
+
+export function menuTreeToPageMenu(list) {
+  return getMenuTree(list)
+}
+
+function getMenuTree(list) {
+  const remoteMenuList = []
+  for (const index in list) {
+    let obj = {}
+    const menu = list[index]
+    if (menu.type === 0) { // 目录
+      obj.path = menu.url
+      obj.component = Layout
+      obj.meta = {
+        title: menu.name,
+        icon: menu.icon
+      }
+    } else if (menu.type === 1) { // 菜单
+      var urlArr = menu.url.split(';')
+      obj = {
+        path: urlArr[0],
+        component: _import(trim(urlArr[1])),
+        name: urlArr[0],
+        meta: {
+          title: menu.name,
+          icon: menu.icon
+        }
+      }
+    } else if (menu.type === 2) { // 按钮
+      console.log(menu.type)
+    }
+    if (list[index].children.length !== 0) {
+      const tempChildren = getMenuTree(list[index].children)
+      obj.children = tempChildren
+    }
+    if (Object.keys(obj).length > 0) {
+      remoteMenuList.push(obj)
+    }
+  }
+  return remoteMenuList
+}
+
+function trim(str) {
+  return str.replace(/(^\s*)|(\s*$)/g, '')
+}
+
+export default router
