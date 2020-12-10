@@ -1,6 +1,6 @@
 module.exports = {
 
-  title: '规划项目管理',
+  title: '简单数据管理系统',
 
   /**
    * @type {boolean} true | false

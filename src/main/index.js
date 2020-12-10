@@ -32,8 +32,16 @@ function createWindow () {
       enableRemoteModule: true, // 这里是关键设置
     }
   })
+
+  // 引入主进程
+  require("./menu.js")
+  // require("./ipcMain")
+
+  require("./store")
+
   mainWindow.maximize()
   mainWindow.loadURL(winURL)
+   
 
     
   //重点在下面这行，开启调试
@@ -42,6 +50,9 @@ function createWindow () {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+ 
+
 }
 
 app.on('ready', createWindow)

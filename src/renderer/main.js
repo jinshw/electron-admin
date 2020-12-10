@@ -16,6 +16,10 @@ import router from './router'
 import '@/icons' // icon
 import '@/permission' // permission control
 
+const Store = require('electron-store');
+const electronStore = new Store();
+var setting = electronStore.get('setting')
+
 /**
  * If you don't want to use mock-server
  * you want to use MockJs for mock api
@@ -40,3 +44,29 @@ new Vue({
   store,
   render: h => h(App)
 })
+
+// to avoild accesing electorn api from web app build
+if (window && window.process && window.process.type === 'renderer') {
+  const { ipcRenderer } = require('electron')
+
+  ipcRenderer.on('href', (event, data) => {
+    console.log("main...href....",data)
+    // if (data.route) {
+    //   router.push(data.route)
+    // }
+    // window.location.href = data
+    router.push(data);
+
+    // ElementUI.MessageBox('这是一段内容', '标题名称', {
+    //   confirmButtonText: '确定'
+    // });
+
+  })
+  ipcRenderer.on('redirect', (event, data) => {
+    console.log("main...redirect....",data)
+    // router.push(data);
+    router.push({ path: data || '/',query: ""})
+  })
+
+}
+

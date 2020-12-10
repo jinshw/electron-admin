@@ -3,10 +3,15 @@ import { MessageBox, Message } from 'element-ui'
 import store from '@/store'
 import { getToken, getCookies } from '@/utils/auth'
 
+const Store = require('electron-store');
+const electronStore = new Store();
+const setting = electronStore.get("setting")
 
+console.log(setting.apiURL,setting)
 // create an axios instance
 const service = axios.create({
-  baseURL: 'http://localhost:8080/dms',
+  baseURL: setting.apiURL == undefined ?'http://localhost:8080/dms':setting.apiURL,
+  // baseURL: 'http://localhost:8080/dms',
   // baseURL: process.env.VUE_APP_BASE_API, // url = base url + request url
   withCredentials: true, // send cookies when cross-domain requests
   timeout: 50000 // request timeout

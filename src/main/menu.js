@@ -1,18 +1,23 @@
 /* electron 功能 */
-const { ipcRenderer, remote } = require('electron')
-const fs = require('fs');
+const { Menu,ipcMain } = require('electron')
 
-const Menu = remote.Menu;
-const MenuItem = remote.MenuItem;
-var menu = new Menu();
-// menu.append(new MenuItem({ label: 'MenuItem1', click: function () { console.log('item 1 clicked'); } }));
-// menu.append(new MenuItem({ type: 'separator' }));
-// menu.append(new MenuItem({ label: 'MenuItem2', type: 'checkbox', checked: true }));
-// window.addEventListener('contextmenu', function (e) {
-//     e.preventDefault();
-//     menu.popup(remote.getCurrentWindow());
-// }, false);
+
 var template = [
+    {
+        label: '文件',
+        submenu: [
+            {
+                accelerator: 'CmdOrCtrl+N',//添加快捷键
+                label: '环境设置',//子标题
+                type: 'checkbox',//子标题类型 type String (可选)-可以是 normal、separator、submenu、checkbox 或 radio。
+                click: function (event, focusedWindow, focusedWebContents) {
+                    // focusedWindow.webContents.send('redirect', '/test')
+                    focusedWindow.webContents.send('href', '/sys-manage/setting?redirect=dashboard')
+                }
+            }
+
+        ]
+    },
     {
         label: 'Edit',
         submenu: [
@@ -177,17 +182,4 @@ if (process.platform == 'darwin') {
 var menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);
 
-//监听与主进程的通信
-ipcRenderer.on('action', (event, arg) => {
-  switch (arg) {
-      case '新建文件': //新建文件
-          break;
-      case '打开文件': //打开文件
-          break;
-      case '保存': //保存文件
-          break;
-      case '退出':
-          ipcRenderer.sendSync('reqaction', 'exit');
-          break;
-  }
-});
+
