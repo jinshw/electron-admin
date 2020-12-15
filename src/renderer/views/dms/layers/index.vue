@@ -21,13 +21,24 @@
       </el-aside>
       <el-container>
         <el-header style="text-align: right; font-size: 12px;height:60px;line-height:60px;">
-          <el-button type="primary">同步图层数据</el-button>
+          <el-button type="primary" @click="getDmsMaplayers">同步图层数据</el-button>
         </el-header>
         <el-main>
-          <el-table :data="tableData">
-            <el-table-column prop="name" label="图层名称" width="200px">
+          <el-table :data="dmsMaplayers">
+            <el-table-column prop="layerName" label="图层名称" width="200px">
             </el-table-column>
-            <el-table-column prop="path" label="路径" :formatter="formatterDecode">
+            <el-table-column prop="layerPath" label="路径">
+            </el-table-column>
+            <el-table-column prop="isSyn" label="是否同步" :formatter="formatterSyn">
+            </el-table-column>
+            <el-table-column prop="indexed" label="是否创建索引" :formatter="formatterIndexed">
+            </el-table-column>
+            <el-table-column label="操作" fixed="right" align="center">
+              <template slot-scope="scope">
+                <el-button type="text" size="small" @click="handleDelete(scope.$index, scope.row)">删除</el-button>
+                <!-- <el-button v-if="scope.row.isPublish !== 1" type="text" size="small" @click="handlePublish(scope.$index, scope.row)">发布</el-button>
+                <el-button v-if="scope.row.isPublish == 1" type="text" size="small" @click="handleDeleteServer(scope.$index, scope.row)">删除服务</el-button> -->
+              </template>
             </el-table-column>
           </el-table>
         </el-main>
@@ -38,7 +49,7 @@
 </template>
 
 <script>
-import { getList } from '@/api/dms'
+import { getList,synExeMaplayer,getMaplayerList,deleteMaplayer } from '@/api/dms'
 
 // 引入electron库时，必须用window.require,不然会被webpack识别成前端的require，
 const { remote, ipcRenderer } = window.require('electron');
@@ -52,9 +63,13 @@ export default {
   data() {
     return {
       workspaces:[],
+      selectedWorkspace:{},
       tableData:[
         {name:"111",path:"222"}
-      ]
+      ],
+      dmsMaplayers: [],
+      dmsMaplayersParameter: [],
+      selectedMaplayer: null
     }
   },
   mounted() {
@@ -73,8 +88,10 @@ export default {
     selectMenuItem(menu){
       console.log("selectMenuItem...",menu)
       // var url = "http://localhost:8090/iserver/services/map-zhdt/rest/maps.rjson"
+      this.selectedWorkspace = menu
       var url = this.getServiceAddress(menu)
       this.queryMapList(url)
+      this.getMaplayerList()
     },
     queryMapList(url){
       var that = this
@@ -112,6 +129,38 @@ export default {
       console.log(val);
       return decodeURIComponent(val)
     },
+    formatterSyn(row, column){
+      var result = ""
+      var val = row[column.property]
+      switch (val) {
+        case 1:
+          result = "同步"
+          break;
+        case 2:
+          result = "未同步"
+          break;
+        default:
+          result = ""
+          break;
+      }
+      return result
+    },
+    formatterIndexed(row, column){
+      var result = ""
+      var val = row[column.property]
+      switch (val) {
+        case 1:
+          result = "已经创建"
+          break;
+        case 2:
+          result = "未创建"
+          break;
+        default:
+          result = ""
+          break;
+      }
+      return result
+    },
     getServiceAddress(data){
       var serviceAddress = "";
       var setting = store.get("setting");
@@ -120,7 +169,99 @@ export default {
       serviceAddress = serviceAddress + data.wname + "/rest/maps.rjson"
       console.log("serviceAddress...",serviceAddress)
       return serviceAddress
-    }
+    },
+    getDmsMaplayers(){
+      var that = this;
+
+      this.$confirm('数据库中图层与iserver服务同步, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.dmsMaplayersParameter = []
+        for(var index in this.tableData){
+          var obj = this.tableData[index]
+          var selectedMapURL = decodeURIComponent(obj.path)
+          var setting = store.get('setting')
+          var iserverURL = setting.iserverURL
+          selectedMapURL = selectedMapURL.replace(iserverURL,"")
+          this.dmsMaplayersParameter.push({ layerName:obj.name, layerPath: selectedMapURL, wid: this.selectedWorkspace.wid})
+        }
+        synExeMaplayer(this.dmsMaplayersParameter).then(response => {
+          console.log("synexe...",response)
+          if(response.code == 20000){
+            that.$message({
+              type: 'success',
+              message: '同步成功!'
+            })
+          }
+          that.getMaplayerList()
+        })
+
+
+      })
+      .catch(() => {
+        that.$message({
+          type: 'info',
+          message: '已取消'
+        })
+      })
+    },
+    getMaplayerList(){
+      var that = this
+      getMaplayerList({wid: this.selectedWorkspace.wid}).then(response => {
+        that.dmsMaplayers = response.list
+      })
+    },
+
+    handleDelete: function(index, row) {
+      var that = this
+      this.selectedMaplayer = JSON.parse(JSON.stringify(row))
+      if(this.selectedMaplayer.indexed === 1){
+        this.$message({
+          type: 'warning',
+          message: '已经创建索引，需要先删除索引!'
+        })
+        return
+      }
+
+      this.$confirm('此操作将永久删除该记录, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+          const loading = this.$loading({
+            lock: true,
+            text: '执行中...',
+            spinner: 'el-icon-loading',
+            background: 'rgba(0, 0, 0, 0.7)'
+          });
+
+          deleteMaplayer(that.selectedMaplayer).then(response => {
+            loading.close();
+            if(response.code === 20000){
+              
+              that.$message({
+                type: 'success',
+                message: '删除成功!'
+              })
+              that.getMaplayerList()
+            }else{
+              that.$message({
+                type: 'warning',
+                message: '删除失败!'
+              })
+            }
+          })
+        })
+        .catch(() => {
+          that.$message({
+            type: 'info',
+            message: '已取消删除'
+          })
+        })
+    },
+
 
   }
 }

@@ -59,3 +59,27 @@ export function getTree(data) {
     data
   })
 }
+
+// ----------------------------------------------------------------
+// maplayer
+export function getMaplayerList(data) {
+  return request({
+    url: '/maplayer/list',
+    method: 'post',
+    data
+  })
+}
+export function synExeMaplayer(data) {
+  return request({
+    url: '/maplayer/synexe',
+    method: 'post',
+    data
+  })
+}
+export function deleteMaplayer(data) {
+  return request({
+    url: '/maplayer/delete',
+    method: 'post',
+    data
+  })
+}
